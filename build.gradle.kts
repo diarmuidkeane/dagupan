@@ -29,4 +29,7 @@ dependencies {
 
     // Use the Kotlin JUnit integration
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test:2+")
+
 }
