@@ -1,7 +1,9 @@
 package dagupan
 
 import kotlinx.coroutines.asCoroutineDispatcher
+import org.hamcrest.Matchers.containsInAnyOrder
 import org.hamcrest.Matchers.greaterThan
+import org.hamcrest.Matchers.hasSize
 import org.junit.Assert.assertThat
 import org.junit.jupiter.api.Test
 import java.util.Collections
@@ -26,6 +28,8 @@ class TaskExecutorTest {
         val taskSet: Set<Task> = listOf(task0, task1, task2, task3, task4, task5, task6, task7, task8, task9).shuffled().toSet()
 
         TaskExecutor().execute(taskSet)
+        assertThat(testList, hasSize(10))
+        assertThat(testList, containsInAnyOrder("task0","task1","task2","task3","task4","task5","task6","task7","task8","task9"))
         assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")));
         assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")));
         assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")));
@@ -34,7 +38,10 @@ class TaskExecutorTest {
         assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")));
         assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")));
 
+        testList.clear()
         TaskExecutor().execute(taskSet,Executors.newFixedThreadPool(10).asCoroutineDispatcher())
+        assertThat(testList, hasSize(10))
+        assertThat(testList, containsInAnyOrder("task0","task1","task2","task3","task4","task5","task6","task7","task8","task9"))
         assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")));
         assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")));
         assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")));
