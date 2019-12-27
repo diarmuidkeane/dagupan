@@ -7,8 +7,8 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.supervisorScope
 
 class TaskExecutor {
     private val resultMap = mutableMapOf<Task, Deferred<Unit>>()

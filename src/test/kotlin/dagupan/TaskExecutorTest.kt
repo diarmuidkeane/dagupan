@@ -20,16 +20,16 @@ class TaskExecutorTest {
 
     @BeforeEach
     fun setup(){
-        val task0 = Task(emptySet()) { testList.add("task0") ; println( Thread.currentThread().name)} .also { taskMap["task0"] = it  }
+        Task(emptySet()) { testList.add("task0") ; println( Thread.currentThread().name)} .also { taskMap["task0"] = it  }
         val task1 = Task(emptySet()) { testList.add("task1") ; println( Thread.currentThread().name)} .also { taskMap["task1"] = it  }
         val task2 = Task(emptySet()) { testList.add("task2") ; println( Thread.currentThread().name)} .also { taskMap["task2"] = it  }
         val task3 = Task(setOf(task1)) { testList.add("task3") ; println( Thread.currentThread().name)} .also { taskMap["task3"] = it   }
         val task4 = Task(emptySet()) { testList.add("task4") ; println( Thread.currentThread().name)} .also { taskMap["task4"] = it   }
-        val task5 = Task(emptySet()) { testList.add("task5") ; println( Thread.currentThread().name)} .also { taskMap["task5"] = it   }
-        val task6 = Task(setOf(task3, task1)) { testList.add("task6") ; println( Thread.currentThread().name)} .also { taskMap["task6"] = it  }
+        Task(emptySet()) { testList.add("task5") ; println( Thread.currentThread().name)} .also { taskMap["task5"] = it   }
+        Task(setOf(task3, task1)) { testList.add("task6") ; println( Thread.currentThread().name)} .also { taskMap["task6"] = it  }
         val task7 = Task(setOf(task4, task1)) { testList.add("task7") ; println( Thread.currentThread().name)} .also { taskMap["task7"] = it  }
-        val task8 = Task(setOf(task2, task7)) { testList.add("task8") ; println( Thread.currentThread().name)} .also { taskMap["task8"] = it  }
-        val task9 = Task(emptySet()) { testList.add("task9") ; println( Thread.currentThread().name)} .also { taskMap["task9"] = it   }
+        Task(setOf(task2, task7)) { testList.add("task8") ; println( Thread.currentThread().name)} .also { taskMap["task8"] = it  }
+        Task(emptySet()) { testList.add("task9") ; println( Thread.currentThread().name)} .also { taskMap["task9"] = it   }
     }
 
     @AfterEach
