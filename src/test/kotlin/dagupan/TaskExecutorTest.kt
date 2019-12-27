@@ -6,7 +6,6 @@ import org.hamcrest.Matchers.greaterThan
 import org.hamcrest.Matchers.hasSize
 import org.junit.Assert.assertThat
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.lang.RuntimeException
@@ -54,7 +53,7 @@ class TaskExecutorTest {
     }
 
     @Test
-    fun `execute when independent workload fails the other workloads are not disturbed`() {
+    fun `execute when independent workload fails then the other workloads are not disturbed`() {
         taskMap["task0"] =  Task(emptySet()) {throw RuntimeException()}
         TaskExecutor().execute(taskMap.values.toSet())
         assertThat(testList, hasSize(9))
@@ -69,7 +68,7 @@ class TaskExecutorTest {
     }
 
     @Test
-    fun `execute when a workload dependency fails the dependent workload also fails but the other workloads are not disturbed`() {
+    fun `execute when a workload dependency fails then the dependent workload also fails but the other workloads are not disturbed`() {
         val newTask1  = Task(emptySet()) { println( Thread.currentThread().name) ;throw RuntimeException()}.also {  taskMap["task1"] = it}
         val newTask3 =  Task(setOf(newTask1)) { testList.add("task3"); println( Thread.currentThread().name) }.also {  taskMap["task3"] = it}
         Task(setOf(newTask3, newTask1)) { testList.add("task6"); println( Thread.currentThread().name) } .also { taskMap["task6"] = it  }
@@ -82,7 +81,7 @@ class TaskExecutorTest {
     }
 
     @Test
-    fun `execute when a workload dependency fails the dependent workload also fails but it's own dependencies and the other workloads are not disturbed`() {
+    fun `execute when task execution is cancelled then the tasks are all cancelled as expected`() {
         val newTask3 =  Task(setOf(taskMap["task1"]!! )) { println( Thread.currentThread().name) ;throw RuntimeException()}.also {  taskMap["task3"] = it}
         Task(setOf(newTask3, taskMap["task1"]!! )) { testList.add("task6"); println( Thread.currentThread().name) } .also { taskMap["task6"] = it  }
         TaskExecutor().execute(taskMap.values.toSet())

@@ -1,47 +1,48 @@
 package dagupan
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 
 class TaskExecutor {
-
     private val resultMap = mutableMapOf<Task, Deferred<Unit>>()
+    private val scope = CoroutineScope(SupervisorJob())
 
     fun execute(taskSet: Set<Task>, dispatcher: CoroutineDispatcher = Dispatchers.Default) {
-        runBlocking(dispatcher) {
-            supervisorScope {
-                 fun prepareAsync(task: Task): Deferred<Unit> {
-                    resultMap[task] = async(start = CoroutineStart.LAZY) {
-                        task.dependsOn.forEach {
-                            resultMap[it]?.run {
-                                if (!isActive) {
-                                    join()
-                                }
-                            }
-                        }
-                        task.doWork()
-                    }
-                    return  resultMap[task]!!
-                }
-
-                fun fromTaskAsync(task: Task): Deferred<Unit> {
-                    return resultMap[task]?.let { it } ?: prepareAsync(task)
-                }
-
-                taskSet.map { fromTaskAsync(it) }
-                        .forEach { kickOff(it) }
+        runBlocking(context = dispatcher) {
+            if(isActive)
+             taskSet.map { fromTaskAsync(it) } .forEach { if(isActive) kickOff(it) }
             }
+    }
+
+    private fun fromTaskAsync(task: Task): Deferred<Unit> {
+        return resultMap[task]?.let { it } ?: prepareAsync(task)
+    }
+
+    private fun prepareAsync(task: Task): Deferred<Unit> {
+        resultMap[task] = scope.async(start = CoroutineStart.LAZY) {
+            task.dependsOn.forEach {
+                resultMap[it]?.run {
+                    if (!isActive) {
+                        join()
+                    }
+                }
+            }
+            task.doWork()
         }
+        return  resultMap[task]!!
     }
 
     private suspend fun kickOff(deferred: Deferred<Unit>) {
+        val task = reverseLookup(deferred)
         runCatching {
-            reverseLookup(deferred).dependsOn.forEach {
+            task.dependsOn.forEach {
                 resultMap[it]?.run {
                     if (isCancelled) {
                         deferred.cancel()
@@ -49,7 +50,7 @@ class TaskExecutor {
                 }
             }
             if(!deferred.isCancelled) deferred.await()
-        }.onFailure { /**/ }.onSuccess { /**/ }
+        }.onFailure { task.failure(it) }.onSuccess { task.success() }
     }
 
     private fun reverseLookup(deferred: Deferred<Unit>) =
