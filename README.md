@@ -42,6 +42,7 @@ Calling thread is blocked until the executor completes execution. Cancellation a
 * Non blocking execution submission - Cancellation of the entire taskSet.
 * Passing results to and from workloads 
 * A nice way to assemble tasks from a grouping of workloads that are all methods coming from a family of Spring Beans . 
+* not need to do reverse lookup of deferred back to associated task - create a reverse map instead 
 
 Feel free to add to and/or upvote the feature you would like to see implemented.
 

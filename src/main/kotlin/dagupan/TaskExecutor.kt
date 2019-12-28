@@ -16,8 +16,7 @@ class TaskExecutor {
 
     fun execute(taskSet: Set<Task>, dispatcher: CoroutineDispatcher = Dispatchers.Default) {
         runBlocking(context = dispatcher) {
-            if(isActive)
-             taskSet.map { fromTaskAsync(it) } .forEach { if(isActive) kickOff(it) }
+             taskSet.map(::fromTaskAsync).map { kickOff(it) }
             }
     }
 

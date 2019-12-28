@@ -81,7 +81,7 @@ class TaskExecutorTest {
     }
 
     @Test
-    fun `execute when task execution is cancelled then the tasks are all cancelled as expected`() {
+    fun `execute when a workload dependency fails then the dependent workload also fails but it's own dependencies and the other workloads are not disturbed`() {
         val newTask3 =  Task(setOf(taskMap["task1"]!! )) { println( Thread.currentThread().name) ;throw RuntimeException()}.also {  taskMap["task3"] = it}
         Task(setOf(newTask3, taskMap["task1"]!! )) { testList.add("task6"); println( Thread.currentThread().name) } .also { taskMap["task6"] = it  }
         TaskExecutor().execute(taskMap.values.toSet())
