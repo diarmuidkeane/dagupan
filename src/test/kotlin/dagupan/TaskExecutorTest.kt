@@ -1,6 +1,11 @@
 package dagupan
 
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.supervisorScope
 import org.hamcrest.Matchers.containsInAnyOrder
 import org.hamcrest.Matchers.greaterThan
 import org.hamcrest.Matchers.hasSize
@@ -43,38 +48,71 @@ class TaskExecutorTest {
         TaskExecutor().execute(taskMap.values.toSet())
         assertThat(testList, hasSize(10))
         assertThat(testList, containsInAnyOrder("task0", "task1", "task2", "task3", "task4", "task5", "task6", "task7", "task8", "task9"))
-        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")));
-        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")));
-        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")));
-        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")));
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")))
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")))
     }
 
     @Test
     fun `execute when independent workload fails then the other workloads are not disturbed`() {
-        taskMap["task0"] =  Task(emptySet()) {throw RuntimeException()}
+        taskMap["task0"] = Task(emptySet()) { throw RuntimeException() }
         TaskExecutor().execute(taskMap.values.toSet())
         assertThat(testList, hasSize(9))
         assertThat(testList, containsInAnyOrder("task1", "task2", "task3", "task4", "task5", "task6", "task7", "task8", "task9"))
-        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")));
-        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")));
-        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")));
-        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")));
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")))
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")))
+    }
+
+    @Test
+    fun `execute when taskExecutor cancelled only unfinished or hanging jobs are incomplete`() {
+        runCatching {
+            runBlocking {
+                supervisorScope {
+                    val taskExecutor = TaskExecutor(this)
+                    taskMap["task0"] = Task(emptySet()) {
+                        launch {
+                            while (true) {
+                                delay(1000)
+                            }
+                        }
+                    }
+                    taskExecutor.execute(taskMap.values.toSet())
+                    while(testList.size <9)
+                    {
+                        delay(10)
+                    }
+                    this.coroutineContext.cancel()
+                }
+            }
+        }
+        assertThat(testList, hasSize(9))
+        assertThat(testList, containsInAnyOrder("task1", "task2", "task3", "task4", "task5", "task6", "task7", "task8", "task9"))
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")))
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")))
     }
 
     @Test
     fun `execute when a workload dependency fails then the dependent workload also fails but the other workloads are not disturbed`() {
-        val newTask1  = Task(emptySet()) { println( Thread.currentThread().name) ;throw RuntimeException()}.also {  taskMap["task1"] = it}
-        val newTask3 =  Task(setOf(newTask1)) { testList.add("task3"); println( Thread.currentThread().name) }.also {  taskMap["task3"] = it}
-        Task(setOf(newTask3, newTask1)) { testList.add("task6"); println( Thread.currentThread().name) } .also { taskMap["task6"] = it  }
+        val newTask1 = Task(emptySet()) { println(Thread.currentThread().name);throw RuntimeException() }.also { taskMap["task1"] = it }
+        val newTask3 = Task(setOf(newTask1)) { testList.add("task3"); println(Thread.currentThread().name) }.also { taskMap["task3"] = it }
+        Task(setOf(newTask3, newTask1)) { testList.add("task6"); println(Thread.currentThread().name) }.also { taskMap["task6"] = it }
         TaskExecutor().execute(taskMap.values.toSet())
         assertThat(testList, hasSize(7))
-        assertThat(testList, containsInAnyOrder("task0","task2", "task4", "task5", "task7", "task8", "task9"))
+        assertThat(testList, containsInAnyOrder("task0", "task2", "task4", "task5", "task7", "task8", "task9"))
         assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")));
         assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")));
         assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")));
@@ -95,15 +133,15 @@ class TaskExecutorTest {
 
     @Test
     fun `execute when run with concurrent threaded dispatcher then task ordering is as expected`() {
-        TaskExecutor().execute(taskMap.values.toSet(),Executors.newFixedThreadPool(10).asCoroutineDispatcher())
+        TaskExecutor().execute(taskMap.values.toSet(), Executors.newFixedThreadPool(10).asCoroutineDispatcher())
         assertThat(testList, hasSize(10))
-        assertThat(testList, containsInAnyOrder("task0","task1","task2","task3","task4","task5","task6","task7","task8","task9"))
-        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")));
-        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")));
-        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task1")));
-        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")));
-        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")));
+        assertThat(testList, containsInAnyOrder("task0", "task1", "task2", "task3", "task4", "task5", "task6", "task7", "task8", "task9"))
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task3")))
+        assertThat(testList.indexOf("task6"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task3"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task4")))
+        assertThat(testList.indexOf("task7"), greaterThan(testList.indexOf("task1")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task7")))
+        assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")))
     }
 }

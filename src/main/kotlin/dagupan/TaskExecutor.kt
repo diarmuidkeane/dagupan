@@ -7,12 +7,10 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
 
-class TaskExecutor {
+class TaskExecutor(private val scope : CoroutineScope= CoroutineScope(SupervisorJob())) {
     private val resultMap = mutableMapOf<Task, Deferred<Unit>>()
-    private val scope = CoroutineScope(SupervisorJob())
 
     fun execute(taskSet: Set<Task>, dispatcher: CoroutineDispatcher = Dispatchers.Default) {
         runBlocking(context = dispatcher) {

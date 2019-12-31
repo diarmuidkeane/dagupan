@@ -12,11 +12,11 @@ A Kotlin Coroutine implementation of a scheduler for an arbitrary set of tasks t
 * tests covering typical scenarios . 100% Code Coverage 
 
 ### Usage
-A simple vale object `Task` is provided as the means to encode the workloads ,sucess and failure handlers based on the outcome of the workload and the dependencies between workloads . The task has a simple signature.
+A simple value object `Task` is provided as the means to encode the workloads ,sucess and failure handlers based on the outcome of the workload and the dependencies between workloads . The task has a simple signature.
 ```
 data class Task( val dependsOn: Set<Task> , val success: () -> Unit = {}, val failure: (Throwable) -> Unit ={}, val doWork: () -> Unit)
 ```
-Avoiding cyclical dependencies between tasks comes about naturally from simply declaring the tasks one by one and assigning dependencies as requred from the tasks that have been decalred bfore .
+Avoiding cyclical dependencies between tasks comes about naturally from simply declaring the tasks one by one and assigning dependencies as required from the tasks that have been declared before .
 ```
         val task0 = Task(emptySet()) { testList.add("task0") }
         val task1 = Task(setOf(task0)) { testList.add("task1") }
@@ -35,11 +35,22 @@ there is an optional second parameter which can be used if concurrent thread poo
   val taskSet = setOf(task0,task1,task2,task3)
   TaskExecutor().execute(taskSet,Executors.newFixedThreadPool(4).asCoroutineDispatcher())
 ```
-Calling thread is blocked until the executor completes execution. Cancellation and workload timeouts is on the Todo list.
+Calling thread is blocked until the executor completes execution. 
+
+You have the option of invoking the task executor in standalone fashion where it will create its own supervisor scope or 
+passing in an existing supervisor scope which gives you the control to cancel the entire execution after a timeout period
+```
+            runBlocking {
+                supervisorScope {
+                    TaskExecutor(this).execute(taskMap.values.toSet())
+                    (60 downTo 0).forEach{if(it>0) delay(1000) else this.coroutineContext.cancel()}
+                }
+            }
+        
+```
+Only the infinished or hanging tasks will be left incomplete .
 
 ### Todo
-* workload timeouts
-* Non blocking execution submission - Cancellation of the entire taskSet.
 * Passing results to and from workloads 
 * A nice way to assemble tasks from a grouping of workloads that are all methods coming from a family of Spring Beans . 
 * not need to do reverse lookup of deferred back to associated task - create a reverse map instead 
