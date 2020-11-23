@@ -1,7 +1,7 @@
 package dagupan
 
 import org.hamcrest.CoreMatchers.hasItems
-import org.junit.Assert.assertThat
+import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.Test
 import kotlin.reflect.KType
 import kotlin.reflect.full.starProjectedType

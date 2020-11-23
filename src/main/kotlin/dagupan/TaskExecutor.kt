@@ -10,7 +10,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 
 class TaskExecutor(private val scope : CoroutineScope= CoroutineScope(SupervisorJob())) {
-    private val resultMap = mutableMapOf<Task, Deferred<Unit>>()
+    private val resultMap = mutableMapOf<Task, Deferred<TaskReport>>()
 
     fun execute(taskSet: Set<Task>, dispatcher: CoroutineDispatcher = Dispatchers.Default) {
         runBlocking(context = dispatcher) {
@@ -18,11 +18,11 @@ class TaskExecutor(private val scope : CoroutineScope= CoroutineScope(Supervisor
             }
     }
 
-    private fun fromTaskAsync(task: Task): Deferred<Unit> {
+    private fun fromTaskAsync(task: Task): Deferred<TaskReport> {
         return resultMap[task]?.let { it } ?: prepareAsync(task)
     }
 
-    private fun prepareAsync(task: Task): Deferred<Unit> {
+    private fun prepareAsync(task: Task): Deferred<TaskReport> {
         resultMap[task] = scope.async(start = CoroutineStart.LAZY) {
             task.dependsOn.forEach {
                 resultMap[it]?.run {
@@ -36,7 +36,7 @@ class TaskExecutor(private val scope : CoroutineScope= CoroutineScope(Supervisor
         return  resultMap[task]!!
     }
 
-    private suspend fun kickOff(deferred: Deferred<Unit>) {
+    private suspend fun kickOff(deferred: Deferred<TaskReport>) {
         val task = reverseLookup(deferred)
         runCatching {
             task.dependsOn.forEach {
@@ -50,6 +50,6 @@ class TaskExecutor(private val scope : CoroutineScope= CoroutineScope(Supervisor
         }.onFailure { task.failure(it) }.onSuccess { task.success() }
     }
 
-    private fun reverseLookup(deferred: Deferred<Unit>) =
+    private fun reverseLookup(deferred: Deferred<TaskReport>) =
             resultMap.filterValues { it == deferred }.keys.first()
 }
