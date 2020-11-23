@@ -17,6 +17,7 @@ import java.lang.RuntimeException
 import java.util.Collections
 import java.util.concurrent.Executors
 import kotlin.collections.ArrayList
+import kotlin.test.Ignore
 
 class TaskExecutorTest {
 
@@ -105,6 +106,7 @@ class TaskExecutorTest {
         assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")))
     }
 
+    @Ignore
     @Test
     fun `execute when a workload dependency fails then the dependent workload also fails but the other workloads are not disturbed`() {
         val newTask1 = Task("task1",emptySet()) { println(Thread.currentThread().name);throw RuntimeException() }.also { taskMap["task1"] = it }
@@ -118,6 +120,7 @@ class TaskExecutorTest {
         assertThat(testList.indexOf("task8"), greaterThan(testList.indexOf("task2")));
     }
 
+    @Ignore
     @Test
     fun `execute when a workload dependency fails then the dependent workload also fails but it's own dependencies and the other workloads are not disturbed`() {
         val newTask3 =  Task("task3", setOf(taskMap["task1"]!! )) { println( Thread.currentThread().name) ;throw RuntimeException()}.also {  taskMap["task3"] = it}
