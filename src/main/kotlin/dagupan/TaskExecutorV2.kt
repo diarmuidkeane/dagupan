@@ -1,13 +1,9 @@
 package dagupan
 
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import java.util.concurrent.CancellationException
 
 class TaskExecutorV2(private val scope: CoroutineScope) {
     private val jobMap = mutableMapOf<String, Job>()
@@ -19,7 +15,7 @@ class TaskExecutorV2(private val scope: CoroutineScope) {
 
     suspend fun cancel() {
         jobMap.values.map { it.cancelAndJoin() }
-        jobMap.keys.map { if (resultMap[it] == null ) resultMap[it]=TaskReport.Cancelled(it) } //mark unmapped jobs as cancelled
+        jobMap.keys.map { if (resultMap[it] == null) resultMap[it] = TaskReport.Cancelled(it) } //mark unmapped jobs as cancelled
     }
 
     fun submit(taskMap: MutableMap<String, Task>): MutableMap<String, TaskReport> {
@@ -40,7 +36,7 @@ class TaskExecutorV2(private val scope: CoroutineScope) {
                     processTasks(it.dependsOn)
 
                 if (!jobMap.contains(it.name))
-                    jobMap[it.name] = scope.launch  {
+                    jobMap[it.name] = scope.launch {
                         if (!it.dependsOn.any { dep -> jobMap[dep.name]?.isCancelled!! }) {
                             val result = it.doWork()
                             if (result is TaskReport.Failed) propagateFailure(it)
