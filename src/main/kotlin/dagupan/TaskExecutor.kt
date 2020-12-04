@@ -1,55 +1,53 @@
 package dagupan
 
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 
-class TaskExecutor(private val scope : CoroutineScope= CoroutineScope(SupervisorJob())) {
-    private val resultMap = mutableMapOf<Task, Deferred<TaskReport>>()
+class TaskExecutor(private val scope: CoroutineScope) {
+    private val jobMap = mutableMapOf<String, Job>()
+    private val resultMap: MutableMap<String, TaskReport> = mutableMapOf()
 
-    fun execute(taskSet: Set<Task>, dispatcher: CoroutineDispatcher = Dispatchers.Default) {
-        runBlocking(context = dispatcher) {
-             taskSet.map(::fromTaskAsync).map { kickOff(it) }
-            }
+    private fun reverseDependencyGraph(taskSet: Set<Task>): Map<Task, Set<Task>> {
+        return taskSet.map { task -> Pair(task, taskSet.filter { task in it.dependsOn }.toSet()) }.toMap()
     }
 
-    private fun fromTaskAsync(task: Task): Deferred<TaskReport> {
-        return resultMap[task]?.let { it } ?: prepareAsync(task)
+    suspend fun cancel() {
+        jobMap.values.map { it.cancelAndJoin() }
+        jobMap.keys.map { if (resultMap[it] == null) resultMap[it] = TaskReport.Cancelled(it) } //mark unmapped jobs as cancelled
     }
 
-    private fun prepareAsync(task: Task): Deferred<TaskReport> {
-        resultMap[task] = scope.async(start = CoroutineStart.LAZY) {
-            task.dependsOn.forEach {
-                resultMap[it]?.run {
-                    if (!isActive) {
-                        join()
-                    }
+    fun submit(taskMap: MutableMap<String, Task>): MutableMap<String, TaskReport> {
+        val taskSet = taskMap.values.toSet()
+        val reverseMap = reverseDependencyGraph(taskSet)
+
+        fun processTasks(taskSet: Set<Task>): MutableMap<String, TaskReport> {
+
+            fun propagateFailure(task: Task) {
+                reverseMap[task]?.forEach {
+                    jobMap[it.name]?.cancel()
+                    resultMap[it.name] = TaskReport.Cancelled(it.name)
                 }
             }
-            task.doWork()
+
+            taskSet.forEach {
+                if (it.dependsOn.isNotEmpty())
+                    processTasks(it.dependsOn)
+
+                if (!jobMap.contains(it.name))
+                    jobMap[it.name] = scope.launch {
+                        if (!it.dependsOn.any { dep -> jobMap[dep.name]?.isCancelled!! }) {
+                            val result = it.doWork()
+                            if (result is TaskReport.Failed) propagateFailure(it)
+                            resultMap[it.name] = result
+                        } else
+                            resultMap[it.name] = TaskReport.Cancelled(it.name)
+                    }
+            }
+            return resultMap
         }
-        return  resultMap[task]!!
+        return processTasks(taskSet)
     }
 
-    private suspend fun kickOff(deferred: Deferred<TaskReport>) {
-        val task = reverseLookup(deferred)
-        runCatching {
-            task.dependsOn.forEach {
-                resultMap[it]?.run {
-                    if (isCancelled) {
-                        deferred.cancel()
-                    }
-                }
-            }
-            if(!deferred.isCancelled) deferred.await()
-        }.onFailure { task.failure(it) }.onSuccess { task.success() }
-    }
-
-    private fun reverseLookup(deferred: Deferred<TaskReport>) =
-            resultMap.filterValues { it == deferred }.keys.first()
 }
